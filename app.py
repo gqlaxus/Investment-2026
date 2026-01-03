@@ -1,59 +1,90 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import finnhub
+from datetime import datetime, timedelta
 
-# 1. Setup Data
-us_data = {
-    'Symbol': ['XPEV', 'VOO', 'RSP', 'NVDA', 'NIO', 'Li', 'INTC', 'AAPL', 'CRCL'],
-    'MV': [612.90, 1039.71, 771.44, 566.55, 77.10, 345.00, 236.28, 542.02, 83.47],
-    'Cost': [24.505, 533.48, 179.48, 171.4, 6.719, 31.04, 33.11, 228, 248.28],
-    'Price': [20.43, 628.30, 192.86, 188.85, 5.14, 17.25, 39.38, 271.01, 83.47]
-}
+# Initialize Finnhub (Replace with your actual key)
+FINNHUB_KEY = 'd5c9ko9r01qsbmgjdvfgd5c9ko9r01qsbmgjdvg0'
+finnhub_client = finnhub.Client(api_key=FINNHUB_KEY)
 
-hk_data = {
-    'Symbol': ['Hang Seng TECH', 'SMIC', 'Innovent Bio', 'XIAOMI-W'],
-    'MV_HKD': [3432, 37550, 39400, 48336],
-    'Sentiment': ['Bullish', 'Bullish', 'Neutral', 'Very Bullish']
-}
+st.set_page_config(page_title="Investment Terminal 2026", layout="wide")
+st.title("📟 Global Portfolio Terminal")
 
-# 2. Dashboard UI
-st.set_page_config(page_title="2026 Portfolio Dashboard", layout="wide")
-st.title("🚀 My 2026 Investment Hub")
+# Sidebar for global settings
+st.sidebar.header("Global Controls")
+currency_mode = st.sidebar.selectbox("Base Currency", ["HKD", "USD"])
 
-# Sidebar for News Toggle
-st.sidebar.header("Market Intelligence")
-show_news = st.sidebar.checkbox("Show 2026 Sentiment Analysis", value=True)
+# Define Tabs
+tab_perf, tab_alloc, tab_hold, tab_sent, tab_plan = st.tabs([
+    "📈 Performance", "🍕 Allocation", "📋 Holdings", "🎭 Sentiment", "📝 2026 Plan"
+])
 
-# 3. Main KPIs
-col1, col2, col3 = st.columns(3)
-col1.metric("US Market Value", "$4,274.72", "-$200.00")
-col2.metric("HK Market Value", "128,718 HKD", "-4,300 HKD")
-col3.metric("Portfolio Health", "Moderate Risk", "Tech Heavy")
-
-# 4. Charts
-st.subheader("Asset Allocation & Performance")
-c1, c2 = st.columns(2)
-
-df_us = pd.DataFrame(us_data)
-fig_us = px.pie(df_us, values='MV', names='Symbol', title="US Portfolio Weight")
-c1.plotly_chart(fig_us)
-
-fig_hk = px.bar(pd.DataFrame(hk_data), x='Symbol', y='MV_HKD', color='Sentiment', title="HK Holdings by Sentiment")
-c2.plotly_chart(fig_hk)
-
-# 5. News & Sentiment Module
-if show_news:
-    st.divider()
-    st.subheader("📰 2026 News & Sentiment Feed")
+# --- TAB 1: PERFORMANCE ---
+with tab_perf:
+    st.subheader("Equity Curve & P/L Trends")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Current Value", "$162,783 HKD", "+1.36%")
+    col2.metric("2025 Total Return", "15.79%", "vs HSI 27.8%")
+    col3.metric("Daily Alpha", "0.45%", "Bullish")
     
-    with st.expander("🇨🇳 HK/China Tech Insights (SMIC, Xiaomi)"):
-        st.write("""
-        * **SMIC (00981):** Sentiment is Bullish for Q1 2026 following a 10% price hike on 12-inch wafers.
-        * **Xiaomi (01810):** Strong momentum as EV deliveries hit new milestones in Jan 2026. Target: $53.50 HKD.
-        """)
+    # Placeholder for a performance line chart
+    chart_data = pd.DataFrame({'Date': pd.date_range('2025-01-01', periods=12, freq='M'), 
+                               'Portfolio': [100, 105, 102, 110, 108, 115, 120, 118, 125, 122, 130, 135]})
+    fig_perf = px.line(chart_data, x='Date', y='Portfolio', title="Portfolio Growth vs. Time")
+    st.plotly_chart(fig_perf, use_container_width=True)
+
+# --- TAB 2: ALLOCATION ---
+with tab_alloc:
+    st.subheader("Asset & Geographic Distribution")
+    c1, c2 = st.columns(2)
+    
+    # Geographic Data
+    geo_data = {'Region': ['Hong Kong', 'United States', 'Cash'], 'Value': [128718, 33342, 723]}
+    fig_geo = px.pie(geo_data, values='Value', names='Region', hole=0.5, title="Geographic Exposure")
+    c1.plotly_chart(fig_geo)
+    
+    # Sector Data
+    sec_data = {'Sector': ['EV/Auto', 'Semiconductors', 'Index ETF', 'Tech'], 'Value': [40, 30, 20, 10]}
+    fig_sec = px.bar(sec_data, x='Sector', y='Value', title="Sector Concentration (%)")
+    c2.plotly_chart(fig_sec)
+
+# --- TAB 3: HOLDINGS ---
+with tab_hold:
+    st.subheader("Detailed Position Registry")
+    # Simplified dataframe from your previous input
+    holdings_df = pd.DataFrame([
+        {"Symbol": "XIAOMI-W", "Qty": 1200, "Cost": 32.00, "Price": 40.28, "P/L %": "+25.8%"},
+        {"Symbol": "SMIC", "Qty": 500, "Cost": 79.35, "Price": 75.10, "P/L %": "-5.3%"},
+        {"Symbol": "NVDA", "Qty": 3, "Cost": 171.4, "Price": 188.85, "P/L %": "+10.1%"},
+        {"Symbol": "XPEV", "Qty": 30, "Cost": 24.50, "Price": 20.43, "P/L %": "-16.6%"}
+    ])
+    st.table(holdings_df)
+
+# --- TAB 4: SENTIMENT (Finnhub Integration) ---
+with tab_sent:
+    st.subheader("Live Market Sentiment Feed")
+    ticker = st.text_input("Enter Ticker to Analyze (e.g., AAPL or 01810.HK)", "01810.HK")
+    
+    if st.button("Fetch Intelligence"):
+        # Fetch News
+        clean_ticker = ticker.split('.')[0] if '.' in ticker else ticker
+        news = finnhub_client.company_news(clean_ticker, _from='2025-12-01', to='2026-01-03')
         
-    with st.expander("🇺🇸 US Tech & Semi Insights (NVDA, INTC)"):
-        st.write("""
-        * **NVDA:** AI 'Realization' phase is here. Volatility expected around Q1 earnings, but sentiment remains positive.
-        * **INTC:** Recovery play continues. Market watching for 2026 foundry margin improvements.
-        """)
+        for article in news[:3]:
+            with st.chat_message("assistant"):
+                st.write(f"**{article['headline']}**")
+                st.caption(f"Source: {article['source']} | Sentiment: Real-time Analysis Required")
+                st.write(article['summary'][:150] + "...")
+
+# --- TAB 5: 2026 PLAN ---
+with tab_plan:
+    st.subheader("Strategic Roadmap for 2026")
+    st.info("🎯 **Goal:** Rebalance to 15% Cash and 20% Non-Tech to lower volatility.")
+    
+    with st.expander("Q1 Actions"):
+        st.write("- Trim **Xiaomi** if it touches $50 HKD.")
+        st.write("- Average down on **SMIC** if it dips below $70 HKD.")
+    
+    with st.expander("Risk Management"):
+        st.warning("Concentration in Chinese EVs is high. Stop-loss set at -20% for XPEV.")
